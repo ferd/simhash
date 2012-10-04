@@ -1,0 +1,5 @@
+{application, simhash,
+ [{description, "Simhashing for Erlang"},
+  {vsn, "0.1.0"},
+  {applications, [kernel, stdlib, crypto]}
+ ]}.
