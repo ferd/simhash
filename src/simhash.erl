@@ -3,7 +3,7 @@
 -compile([native]).
 
 -ifdef(TEST).
--export([test/0, testlog/0, teststruct/0]).
+-export([test/0, teststruct/0]).
 -endif.
 
 %% The shingle size determines how large the sliding
