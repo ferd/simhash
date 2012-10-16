@@ -45,13 +45,18 @@
 %%%%%%%%%%%%%%
 %%% PUBLIC %%%
 %%%%%%%%%%%%%%
--type simhash() :: binary().
--export_type([simhash/0]).
+-type simhash()  :: binary().
+-type feature()  :: {Weight::pos_integer(), binary()}.
+-type features() :: [feature()].
+-export_type([simhash/0, feature/0, features/0]).
 
 %% Takes any binary and returns a simhash for that data.
--spec hash(binary()) -> simhash().
-hash(Bin) ->
-    hashed_shingles(Bin, ?SHINGLE_SIZE).
+-spec hash(binary()) -> simhash()
+      ;   (features()) -> simhash().
+hash(Bin = <<_/binary>>) ->
+    hashed_shingles(Bin, ?SHINGLE_SIZE);
+hash(Features = [_|_]) ->
+    simhash_features(Features).
 
 %% Takes a given simhash and returns the closest simhash
 %% in a second list, based on their Hamming distance.
@@ -67,11 +72,16 @@ distance(X,Y) -> hamming(X,Y).
 %%% PRIVATE %%%
 %%%%%%%%%%%%%%%
 
+%% Takes a given set of features and hashes them according
+%% to the algorithm used when compiling the module.
+simhash_features(Features) ->
+    Hashes = [{W, ?HASH(Feature)} || {W,Feature} <- Features],
+    to_sim(reduce(Hashes, ?SIZE-1)).
+
 %% Returns a set of shingles, hashed according to the algorithm
 %% used when compiling the module.
 hashed_shingles(Bin, Size) ->
-    Hashes = [{W,?HASH(X)} || {W,X} <- shingles(Bin, Size)],
-    to_sim(reduce(Hashes, ?SIZE-1)).
+    simhash_features(shingles(Bin, Size)).
 
 %% The vector returned from reduce/2 is taken and flattened
 %% by its content -- values greater or equal to 0 end up being 1,
@@ -172,10 +182,50 @@ test() ->
       F(<<"the crop and top of the cream">>),
       F(<<"I dream of ice cream">>)].
 
+testlog() ->
+    L = [[{0,<<"2012-09-11 14:56:15.959">>},{5,<<"[info]">>}, {0,<<"<0.7.0>">>}, {1,<<"Application">>}, {10,<<"eredis">>}, {1,<<"started on node">>}, {1, <<"'gateway@host.com'">>}],
+         [{0,<<"2012-09-11 14:56:15.972">>},{5,<<"[info]">>}, {0,<<"<0.7.0>">>}, {1,<<"Application">>}, {10,<<"omething">>}, {1,<<"started on node">>}, {1, <<"'gateway@host.com'">>}],
+         [{0,<<"2012-09-11 14:56:16.054">>},{5,<<"[info]">>}, {0,<<"<0.7.0>">>}, {1,<<"Application">>}, {10,<<"gateway">>},{1,<<"started on node">>}, {1, <<"'gateway@host.com'">>}],
+         [{0,<<"2012-09-11 15:15:49.374">>},{5,<<"[warning]">>},{0,<<"<0.15224.441>">>}, {5,<<"@gateway:valid_timestamp:167">>},{1,<<"Replay">>}, {1,<<"detected">>}, {1,<<"(G_TS):">>}, {1,<<"<<\"T428\">>">>}, {1, <<"41">>}, {1, <<"<<\"market\">>">>}],
+         [{0,<<"2012-09-11 15:16:10.074">>},{5,<<"[warning]">>},{0,<<"<0.4186.452>">>}, {5,<<"@gateway:valid_timestamp:167">>},{1,<<"Replay">>}, {1,<<"detected">>}, {1,<<"(G_TS):">>}, {1,<<"<<\"T43l\">>">>}, {1, <<"21">>}, {1, <<"<<\"market\">>">>}],
+         [{0,<<"2012-09-11 15:16:10.091">>},{5,<<"[warning]">>},{0,<<"<0.4455.452>">>}, {5,<<"@gateway:valid_timestamp:167">>},{1,<<"Replay">>}, {1,<<"detected">>}, {1,<<"(G_TS):">>}, {1,<<"<<\"T43U\">>">>}, {1, <<"38">>}, {1, <<"<<\"market\">>">>}],
+         [{0,<<"2012-09-11 15:16:11.486">>},{5,<<"[warning]">>},{0,<<"<0.6040.441>">>}, {5,<<"@gateway:valid_timestamp:167">>},{1,<<"Replay">>}, {1,<<"detected">>}, {1,<<"(G_TS):">>}, {1,<<"<<\"T43i\">>">>}, {1, <<"25">>}, {1, <<"<<\"market\">>">>}],
+         [{0,<<"2012-09-11 15:18:05.026">>}, {5,<<"[error]">>}, {0,<<"<0.19153.510>">>}, {5,<<"@market:generate_response:109">>}, {3,<<"invalid_json:">>}]
+          ++ [{1, X} || X <- re:split(<<"\"lexical error: invalid bytes in UTF8 string.\n\" at 1273 (...<<97,105,115,101,115,45,72,101,114,45,84,101,97,109,146,115,45,82,97,119,45,84,97,108,101,110,116,44,53,54>>...)">>, "\s|,|\\."), X =/= <<>>],
+         [{0,<<"2012-09-11 15:39:45.113">>}, {5,<<"[error]">>}, {0,<<"<0.32341.1177>">>}, {5,<<"@market:generate_response:109">>}, {3,<<"invalid_json">>}]
+          ++ [{1, X} || X <- re:split(<<"\"lexical error: invalid bytes in UTF8 string.\n\" at 1129 (...<<32,49,46,54,59,32,102,114,45,99,97,59,32,110,252,118,105,102,111,110,101,32,65,53,48,32,66,117,105,108>>...)">>, "\s|,|\\."), X =/= <<>>],
+         [{0,<<"2012-09-11 15:39:45.113">>},{5,<<"[warning]">>},{0,<<"<0.4506.1185>">>}, {5,<<"@market:valid_timestamp:167">>},
+          {1,<<"replay">>}, {1,<<"detected">>}, {1,<<"(g_ts):">>}, {1,<<"<<\"T5N1\">>">>}, {1, <<"24">>}, {1, <<"<<\"market\">>">>}],
+         [{0,<<"2012-09-11 15:40:01.456">>},{5,<<"[warning]">>},{0,<<"<0.10828.1178>">>}, {5,<<"@gateway:valid_timestamp:167">>},
+          {1,<<"replay">>}, {1,<<"detected">>}, {1,<<"(g_ts):">>}, {1,<<"<<\"T5N6\">>">>}, {1, <<"23">>}, {1, <<"<<\"market\">>">>}],
+         [{0,<<"2012-09-11 15:40:19.782">>}, {5,<<"[error]">>}, {0,<<"<0.23906.1197>">>}, {5,<<"@market:generate_response:109">>}]
+          ++ [{1, X} || X <- re:split(<<"\"lexical error: invalid bytes in UTF8 string.\n\" at 1241 (...<<46,104,116,109,197,166,202,177,45,202,178,195,180,200,195,214,208,185,250,200,203,212,218,201,238,210,185,215,248,193>>...)">>, "\s|,|\\."), X =/= <<>>],
+         [{0,<<"2012-09-11 16:44:24.472">>}, {5,<<"[error]">>}, {3,<<"emulator Error in process">>}, {0,<<"<0.2754.3785>">>},{0,<<"on node 'gateway@host.com'">>}]
+          ++ [{1, X} || X <- re:split(<<"with exit value: {{case_clause,{match,[[<<20 bytes>>],[<<15 bytes>>]]}},[{filters,is_blacklisted,1,[{file,\"src/filters.erl\"},{line,49}]},{other_market,generate_response,2,[{file,\"src/other_market.erl\"},{line,25}]}]}">>, "\s|,|\\."), X =/= <<>>],
+         [{0,<<"2012-09-11 15:57:42.827">>}, {5,<<"[error]">>}, {3,<<"emulator Error in process">>}, {0,<<"<0.15429.1866>">>},{0,<<"on node 'gateway@host.com'">>}]
+          ++ [{1, X} || X <- re:split(<<"with exit value: {{case_clause,{match,[[<<20 bytes>>],[<<5 bytes>>]]}},[{filters,is_blacklisted,1,[{file,\"src/filters.erl\"},{line,49}]},{other_market,generate_response,2,[{file,\"src/other_market.erl\"},{line,25}]}]}">>, "\s|,|\\."), X =/= <<>>]],
+    DB = [{simhash:hash(Features), Features} || Features <- L],
+    F = fun(Features) ->
+            {Dist, Hash} = simhash:closest(simhash:hash(Features),
+                                           [Hash || {Hash, _} <- DB]),
+            {Dist, Features, proplists:get_value(Hash, DB)}
+    end,
+    [F([{0,<<"2012-09-11 16:44:28.359">>}, {5,<<"[error]">>}, {3,<<"emulator Error in process">>}, {0,<<"<0.23466.3787>">>}, {0,<<"on node 'gateway@host.com'">>}]
+         ++ [{1, X} || X <- re:split(<<"{{case_clause,{match,[[<<20 bytes>>],[<<15 bytes>>]]}},[{filters,is_blacklisted,1,[{file,\"src/filters.erl\"},{line,49}]},{other_market,generate_response,2,[{file,\"src/other_market.erl\"},{line,25}]}]}">>, "\s|,|\\."), X =/= <<>>])
+    ,F([{0,<<"2012-09-11 16:52:08.593">>}, {5,<<"[error]">>}, {0,<<"<0.4986.4117>">>}, {5,<<"@market:generate_response:109">>}, {3,<<"invalid_json:">>}]
+        ++ [{1, X} || X <- re:split(<<"\"lexical error: invalid bytes in UTF8 string.\n\" at 1575 (...<<45,82,104,121,115,45,74,111,105,110,115,45,70,88,146,115,45,80,105,108,111,116,45,145,84,104,101,45,65,109>>...)">>, "\s|,|\\."), X =/= <<>>])
+    ,F([{0,<<"2012-09-11 16:52:18.036">>},{5,<<"[warning]">>},{0,<<"<0.28015.4123>">>}, {5,<<"@gateway:valid_timestamp:167">>},{1,<<"Replay">>}, {1,<<"detected">>}, {1,<<"(G_TS):">>}, {1,<<"<<\"T6Rf\">>">>}, {1, <<"35">>}, {1, <<"<<\"market\">>">>}])
+    ,F([{0,<<"2012-09-11 17:51:11.254">>}, {5,<<"[error]">>}, {3,<<"emulator Error in process">>}, {0,<<"<0.10101.6540>">>}, {0,<<"on node 'gateway@host.com'">>}]
+         ++ [{1, X} || X <- re:split(<<"{{case_clause,{match,[[<<20 bytes>>],[<<13 bytes>>]]}},[{filters,is_blacklisted,1,[{file,\"src/filters.erl\"},{line,49}]},{other_market,generate_response,2,[{file,\"src/other_market.erl\"},{line,25}]}]}">>, "\s|,|\\."), X =/= <<>>])
+    ,F([{0,<<"2012-09-11 19:01:35.403">>}, {5,<<"[error]">>}, {0,<<"<0.31990.1161>">>}, {2, <<"Unknown request for">>}, {1,<<"market">>},{2,<<"method: 'GET'">>}]
+         ++ [{1, X} || X <- re:split(<<"path: [<<\"win\">>,<<\"file:\">>,<<>>,<<>>,<<>>,<<\"data\">>,<<\"webkitrel\">>,<<\"miscdata\">>,<<\"html\">>,<<\"file:\">>,<<>>,<<>>,<<>>,<<\"data\">>,<<\"webkitrel\">>,<<\"miscdata\">>,<<\"html\">>,<<\"error.html\">>]">>, "\s|,|\\."), X =/= <<>>])
+    ].
+
+
 teststruct() ->
     L = [
             [a,b,c,d,e,f]
-             ,{{case_clause,{match,[[<<1:20>>],[<<0:3>>]]}},[{adgear_gateway_filters,is_blacklisted,1,[{file,"src/adgear_gateway_filters.erl"},{line,49}]},{context_web,generate_response,2,[{file,"src/context_web.erl"},{line,25}]}]}
+             ,{{case_clause,{match,[[<<1:20>>],[<<0:3>>]]}},[{filters,is_blacklisted,1,[{file,"src/filters.erl"},{line,49}]},{other_market,generate_response,2,[{file,"src/other_market.erl"},{line,25}]}]}
              ,{cowboy_http_protocol,request,[{http_response,{1,1},200,<<79,75>>},{state,"<0.945.0>","#Port<0.28861495>",cowboy_tcp_transport,[{'_',[{'_',rtb_handler,{config,cassanderl_dispatch,800,ets,61473,65570}}]}],{rtb_handler,{config,cassanderl_dispatch,800,ets,61473,65570}},0,5,10000,keepalive,<<67,97,99,104,101,45,67,111,110,116,114,111,108,58,32,110,111,45,99,97,99,104,101,44,32,110,111,45,115,116,111,114,101,44,32,109,117,115,116,45,114,101,118,97,108,105,100,97,116,101,44,32,112,114,111,120,121,45,114,101,118,97,108,105,100,97,116,101,13,10,67,111,110,110,101,99,116,105,111,110,58,32,107,101,101,112,45,97,108,105,118,101,13,10,67,111,110,116,101,110,116,45,76,101,110,103,116,104,58,32,57,50,53,13,10,67,111,110,116,101,110,116,45,84,121,112,101,58,32,97,112,112,108,105,99,97,116,105,111,110,47,106,97,118,97,115,99,114,105,112,116,13,10,68,97,116,101,58,32,70,114,105,44,32,49,52,32,83,101,112,32,50,48,49,50,32,48,49,58,48,53,58,48,57,32,71,77,84,13,10,80,51,80,58,32,67,80,61,34,78,79,73,32,79,84,67,32,79,84,80,32,79,85,82,32,78,79,82,34,13,10,80,114,97,103,109,97,58,32,110,111,45,99,97,99,104,101,13,10,83,101,114,118,101,114,58,32,67,111,119,98,111,121,13,10,88,45,83,101,114,118,101,114,58,32,104,48,49,49,13,10,88,45,65,110,116,105,118,105,114,117,115,58,32,97,118,97,115,116,33,32,52,13,10,88,45,65,110,116,105,118,105,114,117,115,45,83,116,97,116,117,115,58,32,67,108,101,97,110,13,10,13,10>>,2}],[{file,[115,114,99,47,99,111,119,98,111,121,95,104,116,116,112,95,112,114,111,116,111,99,111,108,46,101,114,108]},{line,97}]}
              ,{a,
                {b,[],[]},

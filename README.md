@@ -97,8 +97,29 @@ to consider two structures as near-duplicates or duplicates is highly
 dependent on the kind (and size) of data you have and the hashing
 algorithm chosen when compiling.
 
+If the default shingling mechanism isn't what you need (and it is
+unlikely to be with larger data sets or with particular vocabularies
+you want to sort by frequency), you can also pass in your own
+weighed features, so that some items are worth more than others:
+
+    10> simhash:distance(
+    10>   simhash:hash([{1,<<"my">>},{1,<<"car">>}, {1,<<"is">>}, {1,<<"black">>}]),
+    10>   simhash:hash([{1,<<"my">>},{1,<<"car">>}, {1,<<"is">>}, {1,<<"blue">>}])).
+    6
+    11> simhash:distance(
+    11>   simhash:hash([{1,<<"my">>},{1,<<"car">>}, {1,<<"is">>}, {5,<<"blue">>}]),
+    11>   simhash:hash([{1,<<"my">>},{1,<<"car">>}, {1,<<"is">>}, {5,<<"black">>}])).
+    17
+
+In the tests above, you can see that by giving more weigh to the color, it's possible to make the simhash behave differently to the same original string.
+
 Notes
 -----
 
 As of now, this library is rather experimental and hasn't made it
 to production anywhere else. Handle with caution.
+
+Changelog
+---------
+
+0.2.0: Adding a way to submit a user's own features/shingles with weight.
