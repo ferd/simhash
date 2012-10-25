@@ -25,21 +25,23 @@ For more resources on simhashing, you may read the following:
 
 How To Build
 ------------
-The module can be compiled using `./rebar compile`.
+The module can be compiled using `./rebar compile` or `make`.
 
-By default, the simhash library will use SHA-160 as the function to
-hash the shingles made from the binary structure. It is the most
-accurate one, but also the slowest one.
+By default, the simhash library will use MD5 as the function to
+hash the shingles made from the binary structure. It is the second most
+accurate one, but also the second slowest one, striking a decent balance.
 
 By passing macros, other hashing algorithms can be used:
 - `PHASH` for Erlang's `phash2` (32 bits, fastest, least accurate)
-- `MD5` for MD5 (128 bits, slower, more accurate)
-- `SHA` for SHA-160 (default) (slowest, most accurate).
+- `MD5` for MD5 (default) (128 bits, slower, more accurate)
+- `SHA` for SHA-160 (slowest, most accurate).
 
-If you want to use MD5 or phash2 hashing, it is recommended you
+If you want to use SHA-160 or phash2 hashing by default, it is recommended you
 provide the macros in your own `rebar` config or whatever other
-tool that lets you declare them when compiling (`{d,'MD5'}` for
+tool that lets you declare them when compiling (`{d,'SHA'}` for
 example).
+
+To run tests, call `make test`.
 
 How To Use It
 -------------
@@ -113,6 +115,20 @@ weighed features, so that some items are worth more than others:
 
 In the tests above, you can see that by giving more weigh to the color, it's possible to make the simhash behave differently to the same original string.
 
+Finally, it is possible to use the simhash library with your own hash function if you wish to do so. The hash function must accept a binary and return a binary. You will also need to provide an argument explaining how many bits is contained in your hashes:
+
+    12> F = fun(X) -> crypto:hash_final(crypto:hash_update(crypto:hash_init(sha512), X)) end.
+    #Fun<erl_eval.6.82930912>
+    13> F(<<"abc">>).
+    <<221,175,53,161,147,...>>
+
+The function `F` defines a simple way to call sha512 hashes from the crypto module. It can be used with simhashes as follows:
+
+    14> simhash:hash(<<"abcdef">>, F, 512).
+    <<60,149,116,223,113,...>>
+    15> simhash:hash([{5,<<"ab">>},{2, <<"cdef">>}], F, 512).
+    <<180,232,215,0,38,245,...>>
+
 Notes
 -----
 
@@ -122,4 +138,10 @@ to production anywhere else. Handle with caution.
 Changelog
 ---------
 
-0.2.0: Adding a way to submit a user's own features/shingles with weight.
+### 0.3.0: ###
+- MD5 is the default simhashing algorithm, for the accuracy/speed balance
+- Added a way to customize the hashing algorithm at run time.
+- Common Test tests!
+
+### 0.2.0: ###
+- Adding a way to submit a user's own features/shingles with weight.

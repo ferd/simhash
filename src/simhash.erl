@@ -1,5 +1,5 @@
 -module(simhash).
--export([hash/1, closest/2, distance/2]).
+-export([hash/1, hash/3, closest/2, distance/2]).
 -compile([native]).
 
 -ifdef(TEST).
@@ -15,9 +15,9 @@
 %% simhash.
 -define(DUP_WEIGHT_ADD,1).
 
-%% Default random hash used by simhash is sha-160
+%% Default random hash used by simhash is MD5
 -ifndef(PHASH). -ifndef(MD5). -ifndef(SHA).
--define(SHA, true).
+-define(MD5, true).
 -endif. -endif. -endif.
 
 %% erlang:phash2 is the fastest, but sadly
@@ -48,7 +48,10 @@
 -type simhash()  :: binary().
 -type feature()  :: {Weight::pos_integer(), binary()}.
 -type features() :: [feature()].
--export_type([simhash/0, feature/0, features/0]).
+-type hashfun()  :: fun((binary()) -> binary()).
+-type hashsize() :: pos_integer().
+-export_type([simhash/0, feature/0, features/0,
+              hashfun/0, hashsize/0]).
 
 %% Takes any binary and returns a simhash for that data.
 -spec hash(binary()) -> simhash()
@@ -57,6 +60,15 @@ hash(Bin = <<_/binary>>) ->
     hashed_shingles(Bin, ?SHINGLE_SIZE);
 hash(Features = [_|_]) ->
     simhash_features(Features).
+
+%% Takes any binary and returns a simhash for that data, based
+%% on whatever hash and size is given by the user.
+-spec hash(binary(), hashfun(), hashsize()) -> simhash()
+      ;   (features(), hashfun(), hashsize()) -> simhash().
+hash(Bin = <<_/binary>>, HashFun, Size) ->
+    hashed_shingles(Bin, ?SHINGLE_SIZE, HashFun, Size);
+hash(Features = [_|_], HashFun, Size) ->
+    simhash_features(Features, HashFun, Size).
 
 %% Takes a given simhash and returns the closest simhash
 %% in a second list, based on their Hamming distance.
@@ -78,10 +90,17 @@ simhash_features(Features) ->
     Hashes = [{W, ?HASH(Feature)} || {W,Feature} <- Features],
     to_sim(reduce(Hashes, ?SIZE-1)).
 
+simhash_features(Features, Hash, Size) ->
+    Hashes = [{W, Hash(Feature)} || {W,Feature} <- Features],
+    to_sim(reduce(Hashes, Size-1)).
+
 %% Returns a set of shingles, hashed according to the algorithm
 %% used when compiling the module.
 hashed_shingles(Bin, Size) ->
     simhash_features(shingles(Bin, Size)).
+
+hashed_shingles(Bin, Size, HashFun, HashSize) ->
+    simhash_features(shingles(Bin, Size), HashFun, HashSize).
 
 %% The vector returned from reduce/2 is taken and flattened
 %% by its content -- values greater or equal to 0 end up being 1,
@@ -160,10 +179,9 @@ hamming(X,Y,Pos,Sum) ->
     end.
 
 -ifdef(TEST).
-%%%%%%%%%%%%%
-%%% TESTS %%%
-%%%%%%%%%%%%%
-%% ad-hoc tests/benchmarks
+%%% ad-hoc demos/benches, useful when fiddling with new features
+%%% that can require manual validation, without actually impacting
+%%% tests in test/simhash_SUITE.erl.
 
 test() ->
     L = [<<"the cat sat on the mat">>,<<"the cat sat on a mat">>,
