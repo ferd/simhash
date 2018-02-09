@@ -9,7 +9,7 @@ all() -> [closer_type, commutative_distance, id_has_0_distance,
           custom_features, custom_hash].
 
 init_per_suite(Config) ->
-    Bytes = crypto:rand_bytes(32),
+    Bytes = crypto:strong_rand_bytes(32),
     case {simhash:hash(Bytes), simhash:hash(Bytes, fun erlang:md5/1, 128)} of
         {X,X} -> Config;
         {_,_} -> {skip, "Tests assume the default hash algorithm is MD5"}
